@@ -79,16 +79,30 @@ def index():
         return redirect(url_for('login'))
 
     selected_year = request.form.get('year_filter') if request.method == 'POST' else None
+    selected_academic_year = request.form.get('academic_year_filter') if request.method == 'POST' else None
     selected_course = request.form.get('course_filter') if request.method == 'POST' else None
+    selected_department = request.form.get('department_filter') if request.method == 'POST' else None
+
 
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
 
+    # Fetch dropdown options
     c.execute("SELECT DISTINCT year FROM certifications ORDER BY year")
     year_options = [row[0] for row in c.fetchall()]
+
+    c.execute("SELECT DISTINCT academic_year FROM certifications ORDER BY academic_year")
+    academic_year_options = [row[0] for row in c.fetchall()]
+
     c.execute("SELECT DISTINCT course_name FROM certifications ORDER BY course_name")
     course_options = [row[0] for row in c.fetchall()]
 
+    c.execute("SELECT DISTINCT department FROM certifications ORDER BY department")
+    department_options = [row[0] for row in c.fetchall()]
+
+
+
+    # Build the main query
     query = "SELECT * FROM certifications"
     params = []
 
@@ -101,10 +115,21 @@ def index():
         query += " year = ?"
         params.append(selected_year)
 
+    if selected_academic_year:
+        query += " AND" if "WHERE" in query else " WHERE"
+        query += " academic_year = ?"
+        params.append(selected_academic_year)
+
     if selected_course:
         query += " AND" if "WHERE" in query else " WHERE"
         query += " course_name = ?"
         params.append(selected_course)
+
+    if selected_department:
+        query += " AND" if "WHERE" in query else " WHERE"
+        query += " department = ?"
+        params.append(selected_department)
+
 
     c.execute(query, tuple(params))
     rows = c.fetchall()
@@ -116,29 +141,36 @@ def index():
     department_labels, department_counts = [], []
     course_labels, course_counts = [], []
     year_labels, year_counts = [], []
+    academic_year_labels, academic_year_counts = [], []
 
     if session['role'] == 'admin':
-        # Department-wise
+        # Department-wise chart
         chart_query = "SELECT department, COUNT(*) FROM certifications"
         chart_params = []
+        conditions = []
 
         if selected_year:
-            chart_query += " WHERE year = ?"
+            conditions.append("year = ?")
             chart_params.append(selected_year)
 
+        if selected_academic_year:
+            conditions.append("academic_year = ?")
+            chart_params.append(selected_academic_year)
+
         if selected_course:
-            chart_query += " AND" if "WHERE" in chart_query else " WHERE"
-            chart_query += " course_name = ?"
+            conditions.append("course_name = ?")
             chart_params.append(selected_course)
+
+        if conditions:
+            chart_query += " WHERE " + " AND ".join(conditions)
 
         chart_query += " GROUP BY department"
         c.execute(chart_query, tuple(chart_params))
-        dept_data = c.fetchall()
-        for dept, count in dept_data:
+        for dept, count in c.fetchall():
             department_labels.append(dept)
             department_counts.append(count)
 
-        # Course-wise
+        # Course-wise chart
         c.execute("""
             SELECT course_name, COUNT(*) 
             FROM certifications 
@@ -149,16 +181,43 @@ def index():
             course_labels.append(course)
             course_counts.append(count)
 
-        # Year-wise
-        c.execute("""
-            SELECT year, COUNT(*) 
-            FROM certifications 
-            GROUP BY year 
-            ORDER BY year
-        """)
-        for year, count in c.fetchall():
-            year_labels.append(year)
+        # Year-wise chart
+        year_query = "SELECT year, COUNT(*) FROM certifications"
+        year_params = []
+        year_conditions = []
+
+        if selected_year:
+            year_conditions.append("year = ?")
+            year_params.append(selected_year)
+
+        if selected_academic_year:
+            year_conditions.append("academic_year = ?")
+            year_params.append(selected_academic_year)
+
+        if selected_course:
+            year_conditions.append("course_name = ?")
+            year_params.append(selected_course)
+
+        if year_conditions:
+            year_query += " WHERE " + " AND ".join(year_conditions)
+
+        year_query += " GROUP BY year ORDER BY year"
+
+        c.execute(year_query, tuple(year_params))
+        for y, count in c.fetchall():
+            year_labels.append(y)
             year_counts.append(count)
+
+        # Academic year-wise chart
+        c.execute("""
+            SELECT academic_year, COUNT(*) 
+            FROM certifications 
+            GROUP BY academic_year 
+            ORDER BY academic_year
+        """)
+        for academic_year, count in c.fetchall():
+            academic_year_labels.append(academic_year)
+            academic_year_counts.append(count)
 
     conn.close()
 
@@ -166,6 +225,8 @@ def index():
         certifications=rows,
         years=year_options,
         selected_year=selected_year,
+        academic_years=academic_year_options,
+        selected_academic_year=selected_academic_year,
         courses=course_options,
         selected_course=selected_course,
         total=total,
@@ -177,8 +238,14 @@ def index():
         course_labels=course_labels,
         course_counts=course_counts,
         year_labels=year_labels,
-        year_counts=year_counts
+        year_counts=year_counts,
+        academic_year_labels=academic_year_labels,
+        academic_year_counts=academic_year_counts,
+        departments=department_options,
+        selected_department=selected_department
     )
+
+
 
 @app.route('/submit', methods=['GET', 'POST'])
 def submit():
@@ -196,20 +263,24 @@ def submit():
             request.form['domain'],
             request.form['start_date'],
             request.form['end_date'],
-            request.form['certificate_link']
+            request.form['certificate_link'],
+            request.form['academic_year']
         )
-        conn = sqlite3.connect(DATABASE)
-        c = conn.cursor()
-        c.execute("""
-            INSERT INTO certifications 
-            (name, roll_no, department, year, course_name, platform, domain, start_date, end_date, certificate_link)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, data)
-        conn.commit()
-        conn.close()
+
+        # Using 'with' statement to ensure connection is closed automatically
+        with sqlite3.connect(DATABASE) as conn:
+            c = conn.cursor()
+            c.execute("""
+                INSERT INTO certifications 
+                (name, roll_no, department, year, course_name, platform, domain, start_date, end_date, certificate_link, academic_year)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, data)
+            conn.commit()
+
         return redirect(url_for('index'))
 
     return render_template("submit.html")
+
 
 @app.route('/edit/<int:cert_id>', methods=['GET', 'POST'])
 def edit_cert(cert_id):
@@ -229,6 +300,7 @@ def edit_cert(cert_id):
         updated = (
             request.form['name'],
             request.form['roll_no'],
+			request.form['department'],
             request.form['year'],
             request.form['course_name'],
             request.form['platform'],
@@ -241,7 +313,7 @@ def edit_cert(cert_id):
         )
         c.execute("""
             UPDATE certifications SET
-                name = ?, roll_no = ?, year = ?, course_name = ?, platform = ?,
+                name = ?, roll_no = ?, department = ?, year = ?, course_name = ?, platform = ?,
                 domain = ?, start_date = ?, end_date = ?, certificate_link = ?, verified = ?
             WHERE id = ?
         """, updated)
@@ -294,8 +366,8 @@ def import_csv():
                     c.execute("""
                         INSERT INTO certifications (
                             name, roll_no, department, year, course_name,
-                            platform, domain, start_date, end_date, certificate_link, verified
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                            platform, domain, start_date, end_date, certificate_link, verified, academic_year
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         row['name'],
                         row['roll_no'],
@@ -307,7 +379,8 @@ def import_csv():
                         row['start_date'],
                         row['end_date'],
                         row['certificate_link'],
-						row['verified']
+						row['verified'],
+                        row['academic_year']
                     ))
                 conn.commit()
                 conn.close()
@@ -333,8 +406,8 @@ def export_csv():
 
     headers = ['id', 'name', 'roll_no', 'department', 'year', 'course_name', 'platform', 'domain', 'start_date', 'end_date', 'certificate_link', 'verified']
     csv_data = ",".join(headers) + "\n"
-    #for row in rows:
-     #   csv_data += ",".join(str(cell) for cell in row) + "\n"
+    for row in rows:
+        csv_data += ",".join(str(cell) for cell in row) + "\n"
 
     return Response(
         csv_data,
