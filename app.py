@@ -83,6 +83,7 @@ def index():
     selected_course = request.form.get('course_filter') if request.method == 'POST' else None
     selected_department = request.form.get('department_filter') if request.method == 'POST' else None
 
+    username = session.get('username')  # or session.get('user'), as applicable
 
     conn = sqlite3.connect(DATABASE)
     c = conn.cursor()
@@ -222,6 +223,7 @@ def index():
     conn.close()
 
     return render_template("index.html",
+        username=username,
         certifications=rows,
         years=year_options,
         selected_year=selected_year,

@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <head>
-    <title>Dashboard</title>
+    <title>VJIT Certifications Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -35,7 +35,18 @@
     </style>
 </head>
 <body>
-    <h1 style="text-align:center;">VJIT Student Certifications</h1>
+          
+    <div style="text-align: right; padding: 10px; font-weight: bold;">
+        Logged in as: {{ username }}
+    </div>
+
+    <div style="text-align: center; padding: 20px;">
+        <!-- <img src="images/Logo.jpg" alt="Centered Image" style="width: 300px;"> -->
+        <img src="{{ url_for('static', filename='images/VjitLogo.png') }}" alt="Centered Image" style="width: 300px;">
+
+    </div>
+
+    <h1 style="text-align:center;">Student Certifications Portal</h1>
 
     <!-- Top buttons -->
     <div class="top-bar">
