@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+    <title>Submit Certification</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Submit Certification</h1>
+    <form method="POST">
+        <div><input name="name" type="text" placeholder="Full Name" required></div>
+        <div><input name="roll_no" type="text" placeholder="Roll No" required></div>
+        <div><input name="year" type="text" placeholder="Year" required></div>
+        <div><input name="course_name" type="text" placeholder="Course" required></div>
+        <div><input name="platform" type="text" placeholder="Platform" required></div>
+        <div><input name="domain" type="text" placeholder="Domain" required></div>
+        <div><label>Start:</label><input name="start_date" type="date" required></div>
+        <div><label>End:</label><input name="end_date" type="date" required></div>
+        <div><input name="certificate_link" type="url" placeholder="Certificate Link" required></div>
+        <div><input type="submit" value="Submit"></div>
+    </form>
+</body>
+</html>

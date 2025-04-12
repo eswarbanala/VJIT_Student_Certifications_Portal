@@ -1,0 +1,29 @@
+http://127.0.0.1:5000/
+
+Then open: 👉 http://localhost:8080/login
+or
+👉 http://127.0.0.1:8080/login
+
+
+
+How to Run It Locally:
+
+Open a terminal/command prompt inside the extracted folder.
+
+Create a virtual environment (optional but recommended):
+
+
+
+
+
+Admin Login
+Username: admin
+
+Password: admin123
+
+
+
+IT Coordinator Login
+Username: itcoordinator
+
+Password: it123

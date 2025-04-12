@@ -1,0 +1,4 @@
+name,roll_no,year,course_name,platform,domain,start_date,end_date,certificate_link,verified
+abc,1208,3rd Year,Python for Everybody,Coursera,,,,,Yes
+xyz,1209,2nd Year,Data Science Essentials,NPTEL,,,,,No
+mno,1210,4th Year,Machine Learning Basics,Udemy,,,,,Yes

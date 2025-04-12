@@ -1,0 +1,27 @@
+<!doctype html>
+<html>
+<head>
+    <title>Import CSV - VJIT Certification Portal</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>Import Certifications via CSV</h1>
+
+    {% if message %}
+        <p style="color: green; text-align: center;">{{ message }}</p>
+    {% endif %}
+
+    <form method="POST" enctype="multipart/form-data">
+        <div>
+            <input type="file" name="file" accept=".csv" required>
+        </div>
+        <div>
+            <input type="submit" value="Import CSV">
+        </div>
+    </form>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="{{ url_for('index') }}" class="btn">← Back to Dashboard</a>
+    </div>
+</body>
+</html>
