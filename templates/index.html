@@ -25,13 +25,40 @@
             margin: 30px auto;
         }
         table {
-            width: 100%; border-collapse: collapse; margin-top: 10px;
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 12px; /* Reduced font size */
         }
         th, td {
-            border: 1px solid #aaa; padding: 6px; text-align: center;
+            border: 1px solid #aaa;
+            padding: 6px 8px; /* Slightly tighter padding */
+            text-align: center;
+            white-space: nowrap; /* Prevents wrapping */
         }
-        th { background-color: #f7f7f7; }
+
+        th {
+            background-color: #f7f7f7;
+            cursor: pointer;
+            position: relative;
+            font-weight: bold;
+        }
+
         form.inline { display: inline; }
+        
+        th {
+            cursor: pointer;
+            position: relative;
+            }
+
+        .sort-icon {
+            font-size: 12px;
+            margin-left: 4px;
+            color: white;
+            vertical-align: middle;
+        }
+
+
     </style>
 </head>
 <body>
@@ -86,7 +113,7 @@
         </select>
         <label for="department_filter">Department:</label>
         <select name="department_filter" id="department_filter">
-            <option value="">All</option>
+            <option value="">All Departments</option>
             {% for dept in departments %}
                 <option value="{{ dept }}" {% if dept == selected_department %}selected{% endif %}>{{ dept }}</option>
             {% endfor %}
@@ -95,6 +122,10 @@
 
         <input type="submit" class="btn" value="Apply Filters">
     </form>
+
+    <!-- pagination-->
+     
+
 
     <!-- Stat cards -->
     <div class="stats">
@@ -223,13 +254,28 @@
     </script>
 
     {% endif %}
+    <!--Searching -->
+    <div style="text-align: center; margin-bottom: 20px;">
+        Search: 
+        <input type="text" id="searchInput" placeholder="Search by name, roll no, course..." style="padding: 8px; width: 50%;">
+    </div>
+    
+
 
     <!-- Table -->
-    <table>
+    <table id="certificationTable"> 
         <thead>
             <tr>
-                <th>Roll No</th><th>Name</th><th>Department</th>
-                <th>Course</th><th>Platform</th><th>Domain</th><th>Year</th><th>Academic Year</th><th>Verified</th><th>Actions</th>
+                <th onclick="sortTable(0)">Roll No <span class="sort-icon"></span></th>
+                <th onclick="sortTable(1)">Name <span class="sort-icon"></span></th>
+                <th onclick="sortTable(2)">Department <span class="sort-icon"></span></th>
+                <th onclick="sortTable(3)">Course <span class="sort-icon"></span></th>
+                <th onclick="sortTable(4)">Platform <span class="sort-icon"></span></th>
+                <th onclick="sortTable(5)">Domain <span class="sort-icon"></span></th>
+                <th onclick="sortTable(6)">Year <span class="sort-icon"></span></th>
+                <th onclick="sortTable(7)">Academic Year <span class="sort-icon"></span></th>
+                <th onclick="sortTable(8)">Verified <span class="sort-icon"></span></th>
+                <th>Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -247,5 +293,63 @@
             {% endfor %}
         </tbody>
     </table>
+
+    <!-- Sorting script  -->
+    <script>
+        let currentSortColumn = -1;
+        let currentSortAsc = true;
+    
+        function sortTable(columnIndex) {
+            const table = document.getElementById("certificationTable");
+            const tbody = table.tBodies[0];
+            const rows = Array.from(tbody.rows);
+    
+            const isAsc = (currentSortColumn === columnIndex) ? !currentSortAsc : true;
+    
+            rows.sort((a, b) => {
+                let x = a.cells[columnIndex].innerText.trim().toLowerCase();
+                let y = b.cells[columnIndex].innerText.trim().toLowerCase();
+    
+                // Convert to number if both are numeric
+                if (!isNaN(x) && !isNaN(y)) {
+                    x = parseFloat(x);
+                    y = parseFloat(y);
+                }
+    
+                return (x > y ? 1 : x < y ? -1 : 0) * (isAsc ? 1 : -1);
+            });
+    
+            rows.forEach(row => tbody.appendChild(row)); // reappend sorted rows
+    
+            // Update sort icons
+            const headers = table.querySelectorAll("th");
+            headers.forEach((th, idx) => {
+                const icon = th.querySelector(".sort-icon");
+                if (icon) icon.innerText = (idx === columnIndex) ? (isAsc ? "↑" : "↓") : "";
+            });
+    
+            // Update current sort status
+            currentSortColumn = columnIndex;
+            currentSortAsc = isAsc;
+        }
+    </script>
+    <!--Searching script -->
+    <script>
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const filter = this.value.toLowerCase();
+            const rows = document.querySelectorAll("#certificationTable tbody tr");
+    
+            rows.forEach(row => {
+                const text = row.innerText.toLowerCase();
+                row.style.display = text.includes(filter) ? '' : 'none';
+            });
+        });
+    </script>
+    
+    <!--Pagination code-->
+    
+
+
+
 </body>
 </html>

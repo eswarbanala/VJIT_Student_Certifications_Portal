@@ -1,0 +1,5 @@
+name,roll_no,year,course_name,platform,domain,start_date,end_date,certificate_link,verified,academic_year
+Apple,21911A0410,3rd Year,Ajax,Cisco,Cyber Security,,,,Yes,2023-24
+Bat,21911A0418,2nd Year,Cybersecurity Essentials,Cisco,Cyber Security,,,,Yes,2023-24
+Cat,21911A0422,1st Year,Cybersecurity Essentials,Cisco,Cyber Security,,,,No,2022-23
+Dog,21911A0423,4th Year,Cybersecurity Essentials,Cisco,Cyber Security,,,,Yes,2024-25
