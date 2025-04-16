@@ -5,6 +5,10 @@ import csv
 from io import TextIOWrapper, BytesIO
 from openpyxl import Workbook
 
+from flask import make_response
+from xhtml2pdf import pisa
+from jinja2 import Template
+
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 DATABASE = 'certifications.db'
@@ -594,6 +598,96 @@ def logout():
     session.clear()
     return redirect(url_for('login'))
 
+# Generating pdf code
+# from flask import make_response
+# from xhtml2pdf import pisa
+# from jinja2 import Template
+
+# Assumes you have a working route to render report.html
+@app.route('/generate_pdf', methods=['POST'])
+def generate_pdf():
+    if 'username' not in session:
+        return redirect(url_for('login'))
+
+    # Collect filters
+    selected_year = request.form.get('year_filter') or ''
+    selected_academic_year = request.form.get('academic_year_filter') or ''
+    selected_course = request.form.get('course_filter') or ''
+    selected_department = request.form.get('department_filter') or (session['department'] if session['role'] != 'admin' else '')
+
+    query = "SELECT * FROM certifications"
+    conditions = []
+    params = []
+
+    if session['role'] != 'admin':
+        conditions.append("department = ?")
+        params.append(session['department'])
+
+    if selected_year:
+        conditions.append("year = ?")
+        params.append(selected_year)
+
+    if selected_academic_year:
+        conditions.append("academic_year = ?")
+        params.append(selected_academic_year)
+
+    if selected_course:
+        conditions.append("course_name = ?")
+        params.append(selected_course)
+
+    if selected_department:
+        conditions.append("department = ?")
+        params.append(selected_department)
+
+    if conditions:
+        query += " WHERE " + " AND ".join(conditions)
+
+    conn = sqlite3.connect(DATABASE)
+    c = conn.cursor()
+
+    c.execute(query, tuple(params))
+    certifications = c.fetchall()
+
+    # Summary data
+    c.execute("""
+        SELECT department, course_name, COUNT(*) 
+        FROM certifications
+        {} 
+        GROUP BY department, course_name
+        ORDER BY department, course_name
+    """.format("WHERE " + " AND ".join(conditions) if conditions else ""), tuple(params))
+    summary_stats = c.fetchall()
+
+    conn.close()
+
+    # Render HTML template
+    rendered = render_template("report.html",
+        certifications=certifications,
+        summary_stats=summary_stats,
+        selected_year=selected_year,
+        selected_academic_year=selected_academic_year,
+        selected_course=selected_course,
+        selected_department=selected_department,
+        total=len(certifications),
+        verified=sum(1 for r in certifications if r[11].lower() == 'yes'),
+        unverified=sum(1 for r in certifications if r[11].lower() != 'yes'),
+    )
+
+    # Convert to PDF with landscape
+    pdf_output = BytesIO()
+    pisa.CreatePDF(rendered, dest=pdf_output)
+    pdf_output.seek(0)
+
+    return send_file(
+        pdf_output,
+        download_name='certification_report.pdf',
+        as_attachment=True,
+        mimetype='application/pdf'
+    )
+
+
+
 if __name__ == '__main__':
     init_db()
     app.run(host='0.0.0.0', port=8080, debug=True)
+
