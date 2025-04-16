@@ -78,10 +78,11 @@ def index():
     if 'username' not in session:
         return redirect(url_for('login'))
 
-    selected_year = request.form.get('year_filter') if request.method == 'POST' else None
-    selected_academic_year = request.form.get('academic_year_filter') if request.method == 'POST' else None
-    selected_course = request.form.get('course_filter') if request.method == 'POST' else None
-    selected_department = request.form.get('department_filter') if request.method == 'POST' else None
+    selected_year = request.form.get('year_filter') if request.method == 'POST' else ''
+    selected_academic_year = request.form.get('academic_year_filter') if request.method == 'POST' else ''
+    selected_course = request.form.get('course_filter') if request.method == 'POST' else ''
+    selected_department = request.form.get('department_filter') if request.method == 'POST' else (session['department'] if session['role'] != 'admin' else '')
+
 
     username = session.get('username')  # or session.get('user'), as applicable
 
@@ -144,6 +145,8 @@ def index():
     year_labels, year_counts = [], []
     academic_year_labels, academic_year_counts = [], []
 
+    summary_stats = []  # default empty list for non-admins
+
     if session['role'] == 'admin':
         # Department-wise chart
         chart_query = "SELECT department, COUNT(*) FROM certifications"
@@ -172,29 +175,87 @@ def index():
             department_counts.append(count)
 
         # Course-wise chart
-        c.execute("""
-            SELECT course_name, COUNT(*) 
-            FROM certifications 
-            GROUP BY course_name 
-            ORDER BY COUNT(*) DESC
-        """)
+        # c.execute("""
+        #     SELECT course_name, COUNT(*) 
+        #     FROM certifications 
+        #     GROUP BY course_name 
+        #     ORDER BY COUNT(*) DESC
+        # """)
+        # for course, count in c.fetchall():
+        #     course_labels.append(course)
+        #     course_counts.append(count)
+        
+        
+        # Course-wise chart (with department filter if selected)
+        course_query = "SELECT course_name, COUNT(*) FROM certifications"
+        course_conditions = []
+        course_params = []
+
+        if selected_department:
+            course_conditions.append("department = ?")
+            course_params.append(selected_department)
+
+        if selected_year:
+            course_conditions.append("year = ?")
+            course_params.append(selected_year)
+
+        if selected_academic_year:
+            course_conditions.append("academic_year = ?")
+            course_params.append(selected_academic_year)
+
+        if course_conditions:
+            course_query += " WHERE " + " AND ".join(course_conditions)
+
+        course_query += " GROUP BY course_name ORDER BY COUNT(*) DESC"
+
+        c.execute(course_query, tuple(course_params))
         for course, count in c.fetchall():
             course_labels.append(course)
             course_counts.append(count)
 
-        # Year-wise chart
-        year_query = "SELECT year, COUNT(*) FROM certifications"
-        year_params = []
-        year_conditions = []
+        
 
+        # Year-wise chart
+        # year_query = "SELECT year, COUNT(*) FROM certifications"
+        # year_params = []
+        # year_conditions = []
+
+        # if selected_year:
+        #     year_conditions.append("year = ?")
+        #     year_params.append(selected_year)
+
+        # if selected_academic_year:
+        #     year_conditions.append("academic_year = ?")
+        #     year_params.append(selected_academic_year)
+
+        # if selected_course:
+        #     year_conditions.append("course_name = ?")
+        #     year_params.append(selected_course)
+
+        # if year_conditions:
+        #     year_query += " WHERE " + " AND ".join(year_conditions)
+
+        # year_query += " GROUP BY year ORDER BY year"
+
+        # c.execute(year_query, tuple(year_params))
+        # for y, count in c.fetchall():
+        #     year_labels.append(y)
+        #     year_counts.append(count)
+        
+        # Year-wise chart (including filters)
+        year_query = "SELECT year, COUNT(*) FROM certifications"
+        year_conditions = []
+        year_params = []
+
+        if selected_department:
+            year_conditions.append("department = ?")
+            year_params.append(selected_department)
         if selected_year:
             year_conditions.append("year = ?")
             year_params.append(selected_year)
-
         if selected_academic_year:
             year_conditions.append("academic_year = ?")
             year_params.append(selected_academic_year)
-
         if selected_course:
             year_conditions.append("course_name = ?")
             year_params.append(selected_course)
@@ -209,17 +270,72 @@ def index():
             year_labels.append(y)
             year_counts.append(count)
 
+        
+
         # Academic year-wise chart
-        c.execute("""
-            SELECT academic_year, COUNT(*) 
-            FROM certifications 
-            GROUP BY academic_year 
-            ORDER BY academic_year
-        """)
+        # c.execute("""
+        #     SELECT academic_year, COUNT(*) 
+        #     FROM certifications 
+        #     GROUP BY academic_year 
+        #     ORDER BY academic_year
+        # """)
+        # for academic_year, count in c.fetchall():
+        #     academic_year_labels.append(academic_year)
+        #     academic_year_counts.append(count)
+
+        # Academic year-wise chart(filtered)
+        academic_year_query = "SELECT academic_year, COUNT(*) FROM certifications"
+        academic_year_conditions = []
+        academic_year_params = []
+
+        if selected_department:
+            academic_year_conditions.append("department = ?")
+            academic_year_params.append(selected_department)
+        if selected_year:
+            academic_year_conditions.append("year = ?")
+            academic_year_params.append(selected_year)
+        if selected_course:
+            academic_year_conditions.append("course_name = ?")
+            academic_year_params.append(selected_course)
+
+        if academic_year_conditions:
+            academic_year_query += " WHERE " + " AND ".join(academic_year_conditions)
+
+        academic_year_query += " GROUP BY academic_year ORDER BY academic_year"
+
+        c.execute(academic_year_query, tuple(academic_year_params))
         for academic_year, count in c.fetchall():
             academic_year_labels.append(academic_year)
             academic_year_counts.append(count)
 
+        # Summary table data (filtered)
+        summary_query = "SELECT department, course_name, COUNT(*) FROM certifications"
+        summary_conditions = []
+        summary_params = []
+
+        if selected_department:
+            summary_conditions.append("department = ?")
+            summary_params.append(selected_department)
+        if selected_year:
+            summary_conditions.append("year = ?")
+            summary_params.append(selected_year)
+        if selected_academic_year:
+            summary_conditions.append("academic_year = ?")
+            summary_params.append(selected_academic_year)
+        if selected_course:
+            summary_conditions.append("course_name = ?")
+            summary_params.append(selected_course)
+
+        if summary_conditions:
+            summary_query += " WHERE " + " AND ".join(summary_conditions)
+
+        summary_query += " GROUP BY department, course_name ORDER BY department, course_name"
+
+        c.execute(summary_query, tuple(summary_params))
+        summary_stats = c.fetchall()
+
+        
+        
     conn.close()
 
     return render_template("index.html",
@@ -244,7 +360,8 @@ def index():
         academic_year_labels=academic_year_labels,
         academic_year_counts=academic_year_counts,
         departments=department_options,
-        selected_department=selected_department
+        selected_department=selected_department,
+        summary_stats=summary_stats
     )
 
 
