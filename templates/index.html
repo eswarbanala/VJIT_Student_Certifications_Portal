@@ -3,7 +3,9 @@
 <head>
     <title>VJIT Certifications Dashboard</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <style>
         .top-bar { text-align: center; margin-bottom: 15px; }
         .btn {
@@ -84,6 +86,7 @@
                 <option value="{{ course }}" {% if course == selected_course %}selected{% endif %}>{{ course }}</option>
             {% endfor %}
         </select>
+        <br><br>
         <label for="department_filter">Department:</label>
         <select name="department_filter" id="department_filter"
             {% if role != 'admin' %} disabled {% endif %}>
@@ -151,33 +154,57 @@
         <h3 style="text-align: center;">Certifications per Department</h3>
         <canvas id="deptChart"></canvas>
     </div>
-    <script>
-        const deptCtx = document.getElementById('deptChart').getContext('2d');
-        new Chart(deptCtx, {
-            type: 'bar',
-            data: {
-                labels: {{ department_labels | tojson }},
-                datasets: [{
-                    label: 'Certifications',
-                    data: {{ department_counts | tojson }},
-                    backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'Department-Wise Certifications' }
+    
+
+<script>
+    const deptCtx = document.getElementById('deptChart').getContext('2d');
+
+    new Chart(deptCtx, {
+        type: 'bar',
+        data: {
+            labels: {{ department_labels | tojson }},
+            datasets: [{
+                label: 'Certifications',
+                data: {{ department_counts | tojson }},
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: {
+                    display: true,
+                    text: 'Department-Wise Certifications'
                 },
-                scales: { y: { beginAtZero: true } }
+                datalabels: {
+                    display: true,
+                    color: 'black',
+                    anchor: 'end',
+                    align: 'top',
+                    font: {
+                        weight: 'bold',
+                        size: 12
+                    },
+                    formatter: Math.round
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
             }
-        });
-    </script>
+        },
+        plugins: [ChartDataLabels]
+    });
+</script>
+
+
 
     <!-- Course-wise -->
-    <div class="chart-container">
+    <!-- <div class="chart-container">
         <h3 style="text-align: center;">Certifications per Course</h3>
         <canvas id="courseChart"></canvas>
     </div>
@@ -204,7 +231,7 @@
                 scales: { y: { beginAtZero: true } }
             }
         });
-    </script>
+    </script> -->
 
     <!-- Year-wise -->
     <div class="chart-container">
@@ -234,7 +261,7 @@
             }
         });
     </script>
-    <div class="chart-container">
+    <!-- <div class="chart-container">
         <h3 style="text-align: center;">Summary Table: Certifications Count (Based on Applied Filters)</h3>
         <table>
             <thead>
@@ -254,14 +281,51 @@
                 {% endfor %}
             </tbody>
         </table>
-    </div>
+    </div> -->
     
 
     {% endif %}
 
+    <!-- Summary table  -->
+    {% if summary_stats %}
+    <div class="chart-container">
+        <h3 style="text-align: center;">Summary Table: Certifications Count (Based on Applied Filters)</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Department</th>
+                    <th>Course Name</th>
+                    <th>Platform</th>
+                    <th>Number of Certifications</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in summary_stats %}
+                    <tr>
+                        <td>{{ row[0] }}</td>
+                        <td>{{ row[1] }}</td>
+                        <td>{{ row[3] }} </td>
+                        <td>{{ row[2] }}</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+<!--  searching feature --> 
+  
+<div style="text-align: center; margin: 20px;">
+    <b>Search</b>
+    <input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search..." style="padding: 8px; width: 300px;">
+</div>
+
+
+
+
     <!-- Table -->
     <h3 style="text-align: center;">Certification Details (Based on Applied Filters)</h3>
-    
+
 <table id="certificationTable">
     <thead>
         <tr>
@@ -339,6 +403,31 @@
         };
     });
     </script>
-    
+    <!-- search script-->
+    <script>
+        function searchTable() {
+            var input, filter, table, tr, td, i, j, txtValue;
+            input = document.getElementById("searchInput");
+            filter = input.value.toLowerCase();
+            table = document.getElementById("certificationTable");
+            tr = table.getElementsByTagName("tr");
+        
+            for (i = 1; i < tr.length; i++) {
+                tr[i].style.display = "none";
+                td = tr[i].getElementsByTagName("td");
+                for (j = 0; j < td.length; j++) {
+                    if (td[j]) {
+                        txtValue = td[j].textContent || td[j].innerText;
+                        if (txtValue.toLowerCase().indexOf(filter) > -1) {
+                            tr[i].style.display = "";
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        </script>
+        
+
 </body>
 </html>

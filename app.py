@@ -9,6 +9,7 @@ from flask import make_response
 from xhtml2pdf import pisa
 from jinja2 import Template
 
+
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'
 DATABASE = 'certifications.db'
@@ -177,17 +178,6 @@ def index():
         for dept, count in c.fetchall():
             department_labels.append(dept)
             department_counts.append(count)
-
-        # Course-wise chart
-        # c.execute("""
-        #     SELECT course_name, COUNT(*) 
-        #     FROM certifications 
-        #     GROUP BY course_name 
-        #     ORDER BY COUNT(*) DESC
-        # """)
-        # for course, count in c.fetchall():
-        #     course_labels.append(course)
-        #     course_counts.append(count)
         
         
         # Course-wise chart (with department filter if selected)
@@ -275,18 +265,6 @@ def index():
             year_counts.append(count)
 
         
-
-        # Academic year-wise chart
-        # c.execute("""
-        #     SELECT academic_year, COUNT(*) 
-        #     FROM certifications 
-        #     GROUP BY academic_year 
-        #     ORDER BY academic_year
-        # """)
-        # for academic_year, count in c.fetchall():
-        #     academic_year_labels.append(academic_year)
-        #     academic_year_counts.append(count)
-
         # Academic year-wise chart(filtered)
         academic_year_query = "SELECT academic_year, COUNT(*) FROM certifications"
         academic_year_conditions = []
@@ -312,31 +290,36 @@ def index():
             academic_year_labels.append(academic_year)
             academic_year_counts.append(count)
 
-        # Summary table data (filtered)
-        summary_query = "SELECT department, course_name, COUNT(*) FROM certifications"
-        summary_conditions = []
-        summary_params = []
-
+# Summary table data (filtered)
+    summary_query = "SELECT department, course_name, COUNT(*), platform FROM certifications"
+    summary_conditions = []
+    summary_params = []
+        
+    if session['role'] != 'admin':
+        summary_conditions.append("department = ?")
+        summary_params.append(session['department'])
+    else:
         if selected_department:
             summary_conditions.append("department = ?")
             summary_params.append(selected_department)
-        if selected_year:
-            summary_conditions.append("year = ?")
-            summary_params.append(selected_year)
-        if selected_academic_year:
-            summary_conditions.append("academic_year = ?")
-            summary_params.append(selected_academic_year)
-        if selected_course:
-            summary_conditions.append("course_name = ?")
-            summary_params.append(selected_course)
+                
+    if selected_year:
+        summary_conditions.append("year = ?")
+        summary_params.append(selected_year)
+    if selected_academic_year:
+        summary_conditions.append("academic_year = ?")
+        summary_params.append(selected_academic_year)
+    if selected_course:
+        summary_conditions.append("course_name = ?")
+        summary_params.append(selected_course)
 
-        if summary_conditions:
-            summary_query += " WHERE " + " AND ".join(summary_conditions)
+    if summary_conditions:
+        summary_query += " WHERE " + " AND ".join(summary_conditions)
 
-        summary_query += " GROUP BY department, course_name ORDER BY department, course_name"
+    summary_query += " GROUP BY department, course_name ORDER BY department, course_name"
 
-        c.execute(summary_query, tuple(summary_params))
-        summary_stats = c.fetchall()
+    c.execute(summary_query, tuple(summary_params))
+    summary_stats = c.fetchall()
 
         
         
@@ -469,6 +452,8 @@ def delete_cert(cert_id):
     conn.close()
     return redirect(url_for('index'))
 
+# importing csv 
+
 @app.route('/import', methods=['GET', 'POST'])
 def import_csv():
     if 'username' not in session:
@@ -485,7 +470,25 @@ def import_csv():
                 reader = csv.DictReader(stream)
                 conn = sqlite3.connect(DATABASE)
                 c = conn.cursor()
+
+                added_count = 0
+                duplicate_count = 0
+
                 for row in reader:
+                    roll_no = row['roll_no'].strip()
+                    course_name = row['course_name'].strip()
+                    platform = row['platform'].strip()
+
+                    # Check for duplicate
+                    c.execute("""
+                        SELECT 1 FROM certifications 
+                        WHERE roll_no = ? AND course_name = ? AND platform = ?
+                    """, (roll_no, course_name, platform))
+                    if c.fetchone():
+                        duplicate_count += 1
+                        continue  # Skip this record
+
+                    # Insert new record
                     c.execute("""
                         INSERT INTO certifications (
                             name, roll_no, department, year, course_name,
@@ -493,25 +496,29 @@ def import_csv():
                         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, (
                         row['name'],
-                        row['roll_no'],
+                        roll_no,
                         session['department'],
                         row['year'],
-                        row['course_name'],
-                        row['platform'],
+                        course_name,
+                        platform,
                         row['domain'],
                         row['start_date'],
                         row['end_date'],
                         row['certificate_link'],
-						row['verified'],
+                        row['verified'],
                         row['academic_year']
                     ))
+                    added_count += 1
+
                 conn.commit()
                 conn.close()
-                message = "CSV imported successfully!"
+                message = f"CSV import complete. {added_count} records added. {duplicate_count} duplicates skipped."
+
             except Exception as e:
                 message = f"Error: {str(e)}"
 
     return render_template('import.html', message=message)
+
 
 @app.route('/export')
 def export_csv():
@@ -527,16 +534,32 @@ def export_csv():
     rows = c.fetchall()
     conn.close()
 
-    headers = ['id', 'name', 'roll_no', 'department', 'year', 'course_name', 'platform', 'domain', 'start_date', 'end_date', 'certificate_link', 'verified']
+    headers = ['Roll No', 'Name', 'Department', 'Year', 'Course Name',
+               'Platform', 'Domain', 'Start Date', 'End Date', 'Certificate Link', 'Academic Year']
+
     csv_data = ",".join(headers) + "\n"
     for row in rows:
-        csv_data += ",".join(str(cell) for cell in row) + "\n"
+        reordered = [
+            row[2],  # Roll No
+            row[1],  # Name
+            row[3],  # Department
+            row[4],  # Year
+            row[5],  # Course Name
+            row[6],  # Platform
+            row[7],  # Domain
+            row[8],  # Start Date
+            row[9],  # End Date
+            row[10], # Certificate Link
+            row[13]  # Academic Year
+        ]
+        csv_data += ",".join(str(cell) for cell in reordered) + "\n"
 
     return Response(
         csv_data,
         mimetype="text/csv",
         headers={"Content-disposition": "attachment; filename=certifications.csv"}
     )
+
 
 @app.route('/export_excel')
 def export_excel():
@@ -556,12 +579,25 @@ def export_excel():
     ws = wb.active
     ws.title = "Certifications"
 
-    headers = ['ID', 'Name', 'Roll No', 'Department', 'Year', 'Course Name',
-               'Platform', 'Domain', 'Start Date', 'End Date', 'Certificate Link', 'Verified']
+    headers = ['Roll No', 'Name', 'Department', 'Year', 'Course Name',
+               'Platform', 'Domain', 'Start Date', 'End Date', 'Certificate Link', 'Academic Year']
     ws.append(headers)
 
     for row in rows:
-        ws.append(list(row))
+        reordered = [
+            row[2],  # Roll No
+            row[1],  # Name
+            row[3],  # Department
+            row[4],  # Year
+            row[5],  # Course Name
+            row[6],  # Platform
+            row[7],  # Domain
+            row[8],  # Start Date
+            row[9],  # End Date
+            row[10], # Certificate Link
+            row[13]  # Academic Year
+        ]
+        ws.append(reordered)
 
     output = BytesIO()
     wb.save(output)
@@ -573,6 +609,7 @@ def export_excel():
         as_attachment=True,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -613,7 +650,12 @@ def generate_pdf():
     selected_year = request.form.get('year_filter') or ''
     selected_academic_year = request.form.get('academic_year_filter') or ''
     selected_course = request.form.get('course_filter') or ''
-    selected_department = request.form.get('department_filter') or (session['department'] if session['role'] != 'admin' else '')
+    # selected_department = request.form.get('department_filter') or (session['department'] if session['role'] != 'admin' else '')
+    if session['role'] == 'admin':
+        selected_department = request.form.get('department_filter') or ''
+    else:
+        selected_department = session['department']
+
 
     query = "SELECT * FROM certifications"
     conditions = []
@@ -650,7 +692,7 @@ def generate_pdf():
 
     # Summary data
     c.execute("""
-        SELECT department, course_name, COUNT(*) 
+        SELECT department, course_name, COUNT(*), platform 
         FROM certifications
         {} 
         GROUP BY department, course_name
