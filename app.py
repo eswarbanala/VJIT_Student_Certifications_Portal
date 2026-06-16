@@ -31,7 +31,8 @@ def init_db():
             start_date TEXT,
             end_date TEXT,
             certificate_link TEXT,
-            verified TEXT DEFAULT 'Yes'
+            verified TEXT DEFAULT 'Yes', 
+            academic_year TEXT
         )
     """)
 
@@ -66,6 +67,7 @@ def init_db():
         ('aimlcoordinator', 'aiml123', 'AIML'),
         ('aidscoordinator', 'aids123', 'AIDS'),
         ('csedscoordinator', 'cseds123', 'CSE-DS'),
+        ('hscoordinator', 'hs123', 'H&S'),
         ('mbacoordinator', 'mba123', 'MBA')
     ]
 
